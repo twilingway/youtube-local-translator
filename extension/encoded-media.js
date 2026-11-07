@@ -1,6 +1,6 @@
 class EncodedMedia {
   constructor(video,tracks,onError){
-    this.video=video;this.tracks=tracks;this.onError=onError;this.records=[];this.bytes=0;this.next=0;this.chain=Promise.resolve();this.generation=0;this.create();
+    this.video=video;this.tracks=tracks;this.onError=onError;this.records=[];this.bytes=0;this.next=0;this.chain=Promise.resolve();this.generation=0;this.recoveries=0;this.repairing=false;this.closed=false;this.failed=false;this.create();
   }
   create(){
     const generation=++this.generation;
@@ -37,8 +37,10 @@ class EncodedMedia {
     this.queues.get(record.track).push(record);
   }
   pump(){
-    if(!this.opened || this.source.readyState!=='open')return;
-    const raw=this.video.raw,position=Math.max(raw.currentTime,this.video.targetSourceTime);
+    if(this.closed || this.failed || !this.opened || this.source.readyState!=='open')return;
+    // A native default seek/decoder jump may briefly report a future position.
+    // While a requested seek is pending, retain and fill ITS frame window.
+    const raw=this.video.raw,position=Math.max(0,this.video.pendingSourceTime??raw.currentTime);
     for(const [id,buffer]of this.buffers){
       if(buffer.updating)continue;
       if(buffer.buffered.length && buffer.buffered.start(0)<position-12){buffer.remove(0,position-8);continue;}
@@ -57,14 +59,38 @@ class EncodedMedia {
         buffer.addEventListener('updateend',()=>{record.end=buffer.buffered.length?buffer.buffered.end(buffer.buffered.length-1):record.end;},{once:true});
       }catch(error){this.queues.get(id).unshift(record);this.onError(error.message);}
     }
+    this.checkTarget();
   }
-  async seek(position){
+  checkTarget(){
+    const target=this.video.pendingSourceTime;
+    if(target===null){this.targetWait=null;return;}
+    if(this.repairing || this.closed || this.failed)return;
+    const ranges=Array.from(this.buffers.values(),b=>Array.from({length:b.buffered.length},(_,i)=>[b.buffered.start(i),b.buffered.end(i)]));
+    // Wait for both tracks before diagnosing a lost window. A bounded rebuild
+    // reuses retained bytes; it never seeks or downloads the source again.
+    if(!ranges.length || ranges.some(r=>!r.length))return;
+    const covered=ranges.every(r=>r.some(([a,b])=>target>=a-.25 && target<b));
+    if(covered){this.targetWait=null;return;}
+    // Appending towards a later seek target can legitimately take time. Only
+    // rebuild if a track has already lost the requested earlier frames.
+    if(!ranges.some(r=>r[0][0]>target+.25)){this.targetWait=null;return;}
+    if(!this.targetWait || Math.abs(this.targetWait.target-target)>.02){this.targetWait={target,since:performance.now()};return;}
+    if(performance.now()-this.targetWait.since<3000)return;
+    this.targetWait=null;
+    if(this.recoveries>=1){this.failed=true;this.onError('Не удалось восстановить нужные кадры из RAM. Завершите перевод, обновите исходную вкладку YouTube и запустите заново.');return;}
+    this.recoveries++;this.repairing=true;
+    this.seek(captureTime(target),true).catch(error=>{if(!this.closed){this.failed=true;this.onError('Не удалось восстановить видео из RAM: '+error.message);}}).finally(()=>{this.repairing=false;});
+  }
+  async seek(position,recovery=false){
     await this.chain;
+    if(this.closed)return;
+    if(!recovery){this.recoveries=0;this.failed=false;this.targetWait=null;}
     let prior=-1;
     for(const record of this.records){
       if(record.seq<=prior || (record.data && await CaptureArchive.hash(record.data)!==record.digest))throw Error('Повреждён RAM-кэш исходного видео');
       prior=record.seq;
     }
+    if(this.closed)return;
     this.create();this.video.currentTime=position;
   }
   prune(before){this.records=this.records.filter(r=>r.op!=='append'||r.init||r.end===null||r.end>=before);this.bytes=this.records.reduce((n,r)=>n+(r.data?.byteLength||0),0);}
@@ -75,6 +101,9 @@ class EncodedMedia {
       try{this.source.duration=end;this.source.endOfStream();}catch{}
     }
   }
-  close(){this.generation++;if(this.url)URL.revokeObjectURL(this.url);}
+  diagnostics(){return {recoveries:this.recoveries,repairing:this.repairing,failed:this.failed,rawReadyState:this.video.raw.readyState,
+    pending:this.video.pendingSourceTime,tracks:Array.from(this.buffers,([id,b])=>({id,updating:b.updating,queued:this.queues.get(id)?.length??0,
+      ranges:Array.from({length:b.buffered.length},(_,i)=>[b.buffered.start(i),b.buffered.end(i)])}))};}
+  close(){this.closed=true;this.generation++;if(this.url)URL.revokeObjectURL(this.url);}
 }
 globalThis.EncodedMedia=EncodedMedia;

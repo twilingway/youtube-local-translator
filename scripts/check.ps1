@@ -14,5 +14,7 @@ node tests/offscreen.test.cjs
 if ($LASTEXITCODE) { throw 'Capture mode contract tests failed' }
 node tests/pcm-queue.test.cjs
 if ($LASTEXITCODE) { throw 'PCM flow control tests failed' }
+node tests/decoder-window.test.cjs
+if ($LASTEXITCODE) { throw 'Decoder window tests failed' }
 & .venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
 if ($LASTEXITCODE) { throw 'Tests failed' }

@@ -4,6 +4,13 @@ function createCachedVideo(element){
   let goal=null;
   function synchronize(){
     if(goal===null || element.readyState<1)return;
+    const ranges=Array.from({length:element.buffered.length},(_,i)=>[element.buffered.start(i),element.buffered.end(i)]);
+    // Container/audio preroll can put the first common frame a few ms after
+    // capture zero. Never wait forever for that tiny, nonexistent interval.
+    if(!ranges.some(([a,b])=>goal>=a&&goal<b)){
+      const next=ranges.find(([a])=>a>goal && a-goal<=.25);
+      if(next)goal=next[0]+.001;
+    }
     if(!element.seeking && Math.abs(element.currentTime-goal)<.25 && element.readyState>=2){goal=null;return;}
     if(!element.seeking && Array.from({length:element.buffered.length},(_,i)=>[element.buffered.start(i),element.buffered.end(i)]).some(([a,b])=>goal>=a&&goal<b))element.currentTime=goal;
   }
@@ -12,6 +19,7 @@ function createCachedVideo(element){
     if(key==='raw')return element;
     if(key==='synchronize')return synchronize;
     if(key==='targetSourceTime')return goal??sourceTime(0);
+    if(key==='pendingSourceTime')return goal;
     if(key==='currentTime')return Math.max(0,captureTime(goal??target.currentTime));
     if(key==='readyState')return goal!==null || target.seeking?0:target.readyState;
     if(key==='buffered'){

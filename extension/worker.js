@@ -31,7 +31,7 @@ async function stopSession(m){
 chrome.runtime.onMessage.addListener((m, sender, respond) => {
   if (m.target !== 'worker') return;
   (async () => {
-    if(m.type==='worker-build')return {build:'0.4.6'};
+    if(m.type==='worker-build')return {build:'0.4.7'};
     if(m.type==='sample-start'){
       if((await chrome.runtime.getContexts({contextTypes:['OFFSCREEN_DOCUMENT']})).length)throw Error('Сначала завершите текущий перевод.');
       const tab=await chrome.tabs.get(m.tabId);

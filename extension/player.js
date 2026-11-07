@@ -382,7 +382,9 @@ setInterval(()=>{
   if(userPaused)status('Пауза плеера; источник продолжает захват');
   else if(video.ended)status(currentDub || speechPending?'Доигрывается озвучка':'Просмотр завершён');
   else if(started)status(video.paused?'Ожидание перевода / накопление буфера':'Перевод воспроизводится');
-  else status(head<delay?`Накопление буфера: ещё ${Math.ceil(delay-head)} сек. Начнётся автоматически.`:!unlocked?'Перевод готов. Нажмите «Включить звук» один раз.':lastResult.waiting_speakers?'Собираем образцы голосов для озвучки…':nativeMode && video.readyState<3?'Ожидаем позицию и загрузку видео YouTube…':'Завершается перевод первых фраз…');
+  else status(head<delay?`Накопление буфера: ещё ${Math.ceil(delay-head)} сек. Начнётся автоматически.`:!unlocked?'Перевод готов. Нажмите «Включить звук» один раз.':lastResult.waiting_speakers?'Собираем образцы голосов для озвучки…':video.readyState<3?'Перевод готов; ожидаем кадры видео…':'Завершается перевод первых фраз…');
+  if(ramMode && encodedMedia?.repairing)status('Перевод готов; восстанавливаем кадры из RAM…');
+  if(ramMode && encodedMedia?.failed)status('Не удалось подготовить видео; смотрите сообщение об ошибке');
   if(autoplayBlocked)status('Перевод готов. Нажмите «Включить звук» один раз.');
   if(processing.stage==='error')status('Перевод остановлен из-за ошибки сервиса');
   renderPlayButton();
@@ -412,15 +414,10 @@ $('dub').oninput=()=>dubAudio.volume=Number($('dub').value);
 $('speed').onchange=()=>{video.defaultPlaybackRate=Number($('speed').value);video.playbackRate=video.defaultPlaybackRate;video.preservesPitch=true;dubAudio.playbackRate=video.playbackRate;};
 $('memory').onchange=()=>{$('memory').value=limitBytes()/1048576;checkCapacity();};
 $('delay').onchange=()=>{
-  const target=Math.max(10,Math.min(60,Number($('delay').value)||20));$('delay').value=target;
-  const position=head-target;
-  if(target>head-video.currentTime+1)targetIncrease=target;
-  if(position>video.currentTime+1 && position<readyThrough-1 && video.buffered.length && position<video.buffered.end(video.buffered.length-1)){
-    silence();video.currentTime=position;
-    for(const cue of cues)if(cue.end<position)spoken.add(cue.id);
-    for(const cue of cues)if(cue.start<=position && cue.end>position)cue.resume=true;
-    status('Задержка уменьшена переходом вперёд внутри буфера');
-  }
+  const target=Math.max(10,Math.min(60,Number($('delay').value)||60));$('delay').value=target;settings.delay=target;
+  // This is a STARTUP setting, not a seek command. In particular, changing it
+  // while gathering the first frames must not move or invalidate the decoder.
+  targetIncrease=0;renderPlayButton();
 };
 $('seekButton').onclick=()=>seekSource(Number($('seek').value));
 $('timeline').oninput=()=>{scrubbing=true;$('sourcePosition').textContent=formatTime(Number($('timeline').value));};
@@ -434,7 +431,7 @@ document.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='c' && !$('subt
 document.addEventListener('keydown',e=>{if(e.code==='Space' && !['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target.tagName)){e.preventDefault();$('play').click();}});
 window.addEventListener('pagehide',()=>{if(!ramMode && !document.body.classList.contains('embedded'))worker('stop').catch(()=>{});});
 // Text-only diagnostics for tests and reproducible measurements; no original media.
-globalThis.translatorDiagnostics=()=>({build:'0.4.6',sessionId,epoch,head,position:video.currentTime,readyThrough,subtitles:showSubtitles,
+globalThis.translatorDiagnostics=()=>({build:'0.4.7',sessionId,epoch,head,position:video.currentTime,readyThrough,subtitles:showSubtitles,
   settings:{mode:settings.mode,voice:settings.voice,delay:Number($('delay').value)},metrics,
   source:{time:lastSource.time,paused:lastSource.paused,duration:lastSource.duration},unlocked,started,autoplayBlocked,playPending,
   paused:video.paused,videoReadyState:video.readyState,audioState:dubAudio.paused?'paused':'running',
@@ -443,7 +440,7 @@ globalThis.translatorDiagnostics=()=>({build:'0.4.6',sessionId,epoch,head,positi
   speechRate:dubAudio.playbackRate,speechQueue:cues.filter(c=>c.start<=video.currentTime && !spoken.has(c.id) && c.audioBytes).length,
   mediaClock,
   transport,processing,nativeState:nativeMode?video.nativeState():null,controlsHidden:document.body.classList.contains('controls-hidden'),
-  videoMode:ramMode?'ram':nativeMode?'native':'capture',encoded:ramMode?{bytes:encodedMedia?.bytes,chunks:encodedMedia?.records.length,tracks:encodedMedia?.tracks,rawPosition:video.raw.currentTime,target:video.targetSourceTime}:null,
+  videoMode:ramMode?'ram':nativeMode?'native':'capture',encoded:ramMode?{bytes:encodedMedia?.bytes,chunks:encodedMedia?.records.length,tracks:encodedMedia?.tracks,rawPosition:video.raw.currentTime,target:video.targetSourceTime,decoder:encodedMedia?.diagnostics()}:null,
   trackInfo,frameStats,cacheStats,archiveChunks:captureArchive.chunks.length,archiveIntegrity:captureArchive.failure||'ordered',translatedRanges,
   speakers:speakerList,
   buffered:Array.from({length:video.buffered.length},(_,i)=>[video.buffered.start(i),video.buffered.end(i)]),
