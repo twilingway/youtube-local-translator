@@ -1,0 +1,13 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><link rel="stylesheet" href="style.css">
+<body class="popup"><h2>Перевод YouTube</h2><label>Режим<select id="mode"><option value="both">Субтитры и озвучка</option><option value="subtitles">Субтитры</option><option value="voice">Озвучка</option></select></label>
+<label id="manualVoiceRow" hidden>Единый голос<select id="voice"><option value="male">Мужской</option><option value="female">Женский</option></select></label>
+<label>Плеер<select id="playerMode"><option value="tab">Вкладка нашего плеера</option><option value="youtube">Вторая страница YouTube</option><option value="window">Отдельное окно</option></select></label><p id="playerHint"></p>
+<label><input id="speakers" type="checkbox" checked> Различать говорящих</label>
+<label>Участники<select id="speakerCount"><option value="2" selected>2 — интервью</option><option value="1">1</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="0">Авто (эксперимент)</option></select></label>
+<label>Видео<select id="videoMode"><option value="ram">Исходные сегменты в RAM (одно скачивание)</option><option value="native">Второй плеер YouTube</option><option value="capture">Захват вкладки в RAM (перекодирование)</option></select></label>
+<fieldset id="captureSettings" hidden><legend>Поток захвата</legend>
+<label>Разрешение<select id="videoHeight"><option value="720">720p</option><option value="1080" selected>1080p</option><option value="1440">1440p</option><option value="2160">2160p</option></select></label>
+<label>Кадры/с<select id="videoFps"><option value="30">30</option><option value="60" selected>60</option></select></label>
+<label>Битрейт, Мбит/с<input id="videoMbps" type="number" min="1" max="24" value="6"></label></fieldset>
+<label>Буфер, секунд<input id="delay" type="number" min="10" max="60" value="60"></label>
+<button id="start">Переводить</button><button id="sample">Образцы голосов — 45 с</button><p id="status">Откройте видео YouTube и включите воспроизведение.</p><script src="popup.js"></script></body></html>

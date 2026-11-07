@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "Локальный перевод YouTube",
+  "version": "0.4.6",
+  "minimum_chrome_version": "116",
+  "description": "Локальные субтитры и озвучка с задержанным плеером",
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "http://127.0.0.1:8765/*",
+    "http://127.0.0.1:8768/*"
+  ],
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "media-tap.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "view.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "player.html",
+        "player.js",
+        "style.css",
+        "archive.js",
+        "native-video.js",
+        "cache-relay.html",
+        "cache-relay.js",
+        "cached-video.js",
+        "encoded-media.js"
+      ],
+      "matches": [
+        "https://www.youtube.com/*"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Переводить"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws://127.0.0.1:8765 http://127.0.0.1:8765 ws://127.0.0.1:8768"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6omFiRRQbuO+1WnhXjLBBOUBCzgLyoYaBJkoiO0FsziJ9DML5VtmRUgAkpplX/+I9Eqi+ZtgECTM3VD7yR3z9ztwIKGni6e8+ftbd4E57GQUekrUIKZ4hKV8nIzrmfw72vupXOqdPPpIr52qdl03UzAJJEK999SYrfkGK57cZGXY7okLKx0dy/utA5FEHUhRWARgXM5NcTmetkjucQ7PH1apH85DmRAqjDaRsdHVF+6qyqINXj18QmxRKCOcW10VcmbLicoL8piK7Hx9Ds9fKF9fcrdNzKdL8QvEp0wTyy3n577CG8SNgw3U1dynuiQCwnZt6htcT+Mpu3lZlsoSsQIDAQAB"
+}

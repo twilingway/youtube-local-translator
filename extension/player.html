@@ -1,0 +1,23 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>Локальный перевод YouTube</title><link rel="stylesheet" href="style.css">
+<body class="watch-player"><div id="stage"><video id="video" playsinline></video><div id="subtitle"></div>
+<div class="player-controls">
+<div class="timeline"><span id="sourcePosition">0:00</span><input id="timeline" type="range" min="0" max="1" step="1" value="0" disabled aria-label="Перемотка видео"><span id="sourceDuration">—</span></div>
+<div class="buffer-meter" role="progressbar" aria-label="Готовый перевод в буфере" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0"><div id="capturedBar"></div><div id="translatedBar"></div></div>
+<div id="bufferStatus" class="buffer-status" role="status">Подключение к захвату…</div>
+<div class="transport"><button id="play" disabled title="Начнётся автоматически, когда видео и перевод будут готовы" aria-busy="true" aria-pressed="false">Подготовка перевода…</button><button id="pause" hidden>Пауза</button>
+<label class="cc"><input id="subtitles" type="checkbox" disabled> CC Субтитры</label>
+<label>Скорость <select id="speed"><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+<button id="settingsButton" title="Настройки" aria-label="Настройки" aria-expanded="false">⚙</button><button id="fullscreen" title="Полный экран">⛶</button><button id="stop" title="Завершить перевод">■ Завершить</button></div>
+</div></div>
+<p id="status" role="status">Подключение к локальному сервису…</p><p id="error" role="alert"></p>
+<details class="settings"><summary>Звук, задержка и память</summary>
+<label>Оригинал <input id="original" type="range" min="0" max="1" step="0.05" value="0"></label>
+<label>Перевод <input id="dub" type="range" min="0" max="1" step="0.05" value="1"></label>
+<label>Стартовый буфер <input id="delay" type="number" min="10" max="60" value="60"> сек.</label>
+<label><input id="cleanVideo" type="checkbox" checked> Захватывать только видео</label>
+<button id="nativeQuality" hidden>Качество YouTube</button><p id="streamInfo"></p>
+<label>Архив в RAM <input id="memory" type="number" min="256" max="8192" step="256" value="2048"> МиБ</label><label><input id="keepHistory" type="checkbox" checked> Хранить просмотренное</label>
+<div id="speakerInfo">Говорящие определяются по голосу. Короткие реплики и перебивания могут определяться неточно.</div><p>Род относится к словам «я сделал/сделала», а не к тембру. Изменения действуют на новые обрабатываемые реплики; готовая озвучка в буфере остаётся прежней.</p>
+<div><label>Перейти к секунде <input id="seek" type="number" min="0" value="0"></label><button id="seekButton">Перейти</button></div>
+<p id="storageHelp">Сохранённый перевод воспроизводится повторно без обработки. В режиме захвата видео хранится в RAM; в исходном режиме картинку загружает YouTube. За пределами готового архива начнётся новый захват.</p><p id="archiveInfo"></p>
+<details class="diagnostics"><summary>Диагностика</summary><pre id="metrics"></pre></details></details><script src="archive.js"></script><script src="native-video.js"></script><script src="cached-video.js"></script><script src="encoded-media.js"></script><script src="player.js"></script></body></html>
