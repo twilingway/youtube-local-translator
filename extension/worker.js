@@ -31,7 +31,7 @@ async function stopSession(m){
 chrome.runtime.onMessage.addListener((m, sender, respond) => {
   if (m.target !== 'worker') return;
   (async () => {
-    if(m.type==='worker-build')return {build:'0.4.7'};
+    if(m.type==='worker-build')return {build:'0.4.9'};
     if(m.type==='sample-start'){
       if((await chrome.runtime.getContexts({contextTypes:['OFFSCREEN_DOCUMENT']})).length)throw Error('Сначала завершите текущий перевод.');
       const tab=await chrome.tabs.get(m.tabId);
@@ -84,7 +84,7 @@ chrome.runtime.onMessage.addListener((m, sender, respond) => {
         if (!/^https:\/\/www\.youtube\.com\/watch\?/.test(tab.url || '')) throw new Error('Откройте страницу видео youtube.com/watch');
         const inspection=await chrome.scripting.executeScript({target:{tabId:m.tabId},func:(prefix)=>{
           const ownView=[...document.querySelectorAll('iframe')].some(frame=>frame.src.startsWith(prefix));
-          const video=document.querySelector('video');
+          const video=document.querySelector('#movie_player video.html5-main-video')||document.querySelector('#movie_player video')||document.querySelector('video');
           return {ownView,hasVideo:!!video,paused:video?.paused,ended:video?.ended,readyState:video?.readyState,
             muted:video?.muted,volume:video?.volume,time:video?.currentTime};
         },args:[chrome.runtime.getURL('player.html')]});
@@ -92,7 +92,7 @@ chrome.runtime.onMessage.addListener((m, sender, respond) => {
         if(sourceState?.ownView)throw new Error('Это вкладка перевода. Откройте обычную вкладку YouTube и запустите исходное видео.');
         if(sourceState?.hasVideo && (sourceState.paused || sourceState.ended)){
           const playback=await chrome.scripting.executeScript({target:{tabId:m.tabId},world:'MAIN',func:async()=>{
-            const video=document.querySelector('video');if(!video)return {hasVideo:false};
+            const video=document.querySelector('#movie_player video.html5-main-video')||document.querySelector('#movie_player video')||document.querySelector('video');if(!video)return {hasVideo:false};
             if(video.ended)video.currentTime=0;
             try{
               await Promise.race([video.play(),new Promise((_,reject)=>setTimeout(()=>reject(Error('Видео ещё загружается')),4500))]);
@@ -108,6 +108,8 @@ chrome.runtime.onMessage.addListener((m, sender, respond) => {
         if(m.videoMode==='ram'){
           m.playerMode='tab';
           const probe=await chrome.scripting.executeScript({target:{tabId:m.tabId},world:'MAIN',func:()=>globalThis.__localTranslatorMediaTap?.info()||{available:false}});
+          if(probe?.[0]?.result?.build!==chrome.runtime.getManifest().version)throw Error('Обновите саму исходную страницу YouTube: в ней остался старый обработчик захвата. Одного обновления расширения недостаточно.');
+          if(probe?.[0]?.result?.sourceMeta?.binding==='unbound')throw Error('RAM-захват не связан с активным видео. Обновите исходную вкладку YouTube после обновления расширения.');
           if(!probe?.[0]?.result?.available || !probe[0].result.init)throw Error('Нет исходных сжатых фрагментов. Обновите вкладку YouTube после обновления расширения и снова включите видео.');
         }
         if(m.videoMode==='native' && m.playerMode!=='youtube')throw Error('Исходное видео доступно в режиме «На странице YouTube».');

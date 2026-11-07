@@ -16,5 +16,7 @@ node tests/pcm-queue.test.cjs
 if ($LASTEXITCODE) { throw 'PCM flow control tests failed' }
 node tests/decoder-window.test.cjs
 if ($LASTEXITCODE) { throw 'Decoder window tests failed' }
+node tests/media-tap.test.cjs
+if ($LASTEXITCODE) { throw 'Active media source tests failed' }
 & .venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
 if ($LASTEXITCODE) { throw 'Tests failed' }

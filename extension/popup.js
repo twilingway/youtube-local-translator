@@ -33,7 +33,7 @@ document.querySelector('#start').onclick = async () => {
   try {
     await restoreOptions;
     const build=await chrome.runtime.sendMessage({target:'worker',type:'worker-build'});
-    if(build?.build!=='0.4.7' || chrome.runtime.getManifest().version!=='0.4.7')throw Error('Код расширения обновлён. Нажмите ↻ у расширения в chrome://extensions и повторите запуск.');
+    if(build?.build!=='0.4.9' || chrome.runtime.getManifest().version!=='0.4.9')throw Error('Код расширения обновлён. Нажмите ↻ у расширения в chrome://extensions и повторите запуск.');
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
     const options={
       mode: document.querySelector('#mode').value, voice: document.querySelector('#voice').value,

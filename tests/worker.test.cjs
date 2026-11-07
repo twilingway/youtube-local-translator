@@ -1,9 +1,10 @@
-const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const prefix='chrome-extension://test/player.html';
 const workerCode=fs.readFileSync(process.env.TRANSLATOR_WORKER_JS||'extension/worker.js','utf8');
-function harness({active=false,state={},tabs=[],sourceState={ownView:false,hasVideo:true,paused:false,ended:false,readyState:4,muted:false,volume:1}}={}){
+const manifestVersion=JSON.parse(fs.readFileSync(path.join(path.dirname(process.env.TRANSLATOR_WORKER_JS||'extension/worker.js'),'manifest.json'),'utf8')).version;
+function harness({active=false,state={},tabs=[],sourceProbe={build:manifestVersion,available:true,init:true},sourceState={ownView:false,hasVideo:true,paused:false,ended:false,readyState:4,muted:false,volume:1}}={}){
   const calls=[],listeners={},store={...state};let offscreen=active;
-  const runtime={getURL:path=>'chrome-extension://test/'+path,
+  const runtime={getURL:path=>'chrome-extension://test/'+path,getManifest:()=>({version:manifestVersion}),
     onMessage:{addListener:f=>listeners.message=f},getContexts:async()=>offscreen?[{}]:[],
     sendMessage:async m=>{calls.push(['message',m]);return {ok:true};}};
   const chrome={runtime,storage:{session:{get:async keys=>Object.fromEntries((Array.isArray(keys)?keys:[keys]).map(k=>[k,store[k]])),
@@ -14,7 +15,7 @@ function harness({active=false,state={},tabs=[],sourceState={ownView:false,hasVi
       sendMessage:async(id,m)=>calls.push(['source-message',id,m]),onRemoved:{addListener:f=>listeners.removed=f}},
     windows:{update:async(id,value)=>calls.push(['focus',id,value]),create:async options=>{calls.push(['create',options]);return {tabs:[{id:99}]};}},
     offscreen:{createDocument:async()=>{offscreen=true;calls.push(['offscreen-create']);},closeDocument:async()=>{offscreen=false;calls.push(['offscreen-close']);}},action:{setBadgeText:async options=>calls.push(['badge',options])},
-    tabCapture:{getMediaStreamId:async options=>{calls.push(['capture-id',options]);return 'stream';}},scripting:{executeScript:async options=>{calls.push(['execute-script',options]);return options.world==='MAIN'?[{result:{method:'youtube-player'}}]:options.func?[{result:sourceState}]:[];}}};
+    tabCapture:{getMediaStreamId:async options=>{calls.push(['capture-id',options]);return 'stream';}},scripting:{executeScript:async options=>{calls.push(['execute-script',options]);return String(options.func).includes('__localTranslatorMediaTap?.info')?[{result:sourceProbe}]:options.world==='MAIN'?[{result:{method:'youtube-player'}}]:options.func?[{result:sourceState}]:[];}}};
   vm.runInNewContext(workerCode,{chrome,URL,crypto:{randomUUID:()=> 'new-session'},fetch:async()=>({json:async()=>({ready:true})})});
   return {calls,store,send:(msg,sender={})=>new Promise(resolve=>listeners.message({target:'worker',...msg},sender,resolve))};
 }
@@ -22,6 +23,12 @@ test('repeated start focuses current player and creates no window or capture',as
   const h=harness({active:true,state:{activeSession:'one',playerTab:7},tabs:[{id:7,windowId:3,url:prefix+'?session=one'}]});
   const result=await h.send({type:'start',tabId:4});assert.equal(result.existing,true);
   assert.ok(h.calls.some(c=>c[0]==='focus'));assert.ok(!h.calls.some(c=>['create','offscreen-create','offscreen-close'].includes(c[0])));
+});
+test('stale MAIN capture hook requires refreshing YouTube before opening a new capture or player',async()=>{
+  const h=harness({tabs:[{id:4,windowId:1,url:'https://www.youtube.com/watch?v=test'}],sourceProbe:{build:'outdated',available:true,init:true}});
+  const result=await h.send({type:'start',tabId:4,videoMode:'ram',playerMode:'tab',mode:'voice',voice:'male',delay:60});
+  assert.match(result.error,/старый обработчик/);
+  assert.ok(!h.calls.some(c=>['offscreen-create','capture-id','tab-create','create'].includes(c[0])));
 });
 test('old window cannot stop or seek newer session',async()=>{
   const h=harness({active:true,state:{activeSession:'new',sourceTab:4,playerTab:7}});

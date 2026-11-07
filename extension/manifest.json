@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Локальный перевод YouTube",
-  "version": "0.4.7",
+  "version": "0.4.9",
   "minimum_chrome_version": "116",
   "description": "Локальные субтитры и озвучка с задержанным плеером",
   "permissions": [

@@ -5,7 +5,7 @@ class EncodedMedia {
   create(){
     const generation=++this.generation;
     this.opened=false;
-    this.buffers=new Map();this.queues=new Map();this.source=new MediaSource();
+    this.buffers=new Map();this.queues=new Map();this.removing=new Set();this.source=new MediaSource();
     if(this.url)URL.revokeObjectURL(this.url);this.url=URL.createObjectURL(this.source);this.video.src=this.url;
     this.source.addEventListener('sourceopen',()=>{
       if(generation!==this.generation)return;
@@ -19,8 +19,8 @@ class EncodedMedia {
     if(this.buffers.has(id))return;
     const buffer=this.source.addSourceBuffer(mime);this.buffers.set(id,buffer);this.queues.set(id,[]);
     const generation=this.generation;
-    buffer.addEventListener('updateend',()=>{if(generation===this.generation){this.video.synchronize();this.pump();}});
-    buffer.addEventListener('error',()=>this.onError('Ошибка исходных сжатых фрагментов: '+mime));
+    buffer.addEventListener('updateend',()=>{if(generation===this.generation){this.removing.delete(id);this.video.synchronize();this.pump();}});
+    buffer.addEventListener('error',()=>{this.failed=true;this.onError('Ошибка исходных сжатых фрагментов: '+mime);});
   }
   accept(message){
     this.chain=this.chain.then(async()=>{
@@ -42,12 +42,23 @@ class EncodedMedia {
     // While a requested seek is pending, retain and fill ITS frame window.
     const raw=this.video.raw,position=Math.max(0,this.video.pendingSourceTime??raw.currentTime);
     for(const [id,buffer]of this.buffers){
+      const queue=this.queues.get(id);
+      // abort is a parser reset, not media data. It must neither wait behind
+      // the ahead-window throttle nor leave a partial MP4 fragment pending.
+      if(queue?.[0]?.op==='abort' && !(buffer.updating && this.removing?.has(id))){
+        queue.shift();try{buffer.abort();}catch(error){this.failed=true;this.onError('Не удалось сбросить видеопарсер: '+error.message);}continue;
+      }
       if(buffer.updating)continue;
-      if(buffer.buffered.length && buffer.buffered.start(0)<position-12){buffer.remove(0,position-8);continue;}
-      if(buffer.buffered.length && buffer.buffered.end(buffer.buffered.length-1)>position+30)continue;
+      if(buffer.buffered.length && buffer.buffered.start(0)<position-12){this.removing?.add(id);buffer.remove(0,position-8);continue;}
+      const currentRange=Array.from({length:buffer.buffered.length},(_,i)=>[buffer.buffered.start(i),buffer.buffered.end(i)])
+        .find(([a,b])=>position>=a-.25 && position<b);
+      // A prefetched fragment at 120 s must not stop replay of queued 0 s
+      // fragments. Throttle only the continuous range around our target.
+      if(currentRange && currentRange[1]>position+30)continue;
       const record=this.queues.get(id).shift();if(!record)continue;
       try{
         if(record.op==='change'){buffer.changeType(record.mime);continue;}
+        if(record.mode && buffer.mode!==record.mode)buffer.mode=record.mode;
         const offset=record.timestampOffset||0;
         if(buffer.timestampOffset!==offset)buffer.timestampOffset=offset;
         const start=record.appendWindowStart||0,end=Math.min(record.appendWindowEnd??Infinity,this.end??Infinity);
@@ -57,7 +68,7 @@ class EncodedMedia {
         }
         buffer.appendBuffer(record.data);
         buffer.addEventListener('updateend',()=>{record.end=buffer.buffered.length?buffer.buffered.end(buffer.buffered.length-1):record.end;},{once:true});
-      }catch(error){this.queues.get(id).unshift(record);this.onError(error.message);}
+      }catch(error){this.queues.get(id).unshift(record);this.failed=true;this.onError(error.message);}
     }
     this.checkTarget();
   }
@@ -69,6 +80,7 @@ class EncodedMedia {
     // Wait for both tracks before diagnosing a lost window. A bounded rebuild
     // reuses retained bytes; it never seeks or downloads the source again.
     if(!ranges.length || ranges.some(r=>!r.length))return;
+    if([...this.buffers.values()].some(b=>b.updating) || [...(this.queues?.values()||[])].some(q=>q.length)){this.targetWait=null;return;}
     const covered=ranges.every(r=>r.some(([a,b])=>target>=a-.25 && target<b));
     if(covered){this.targetWait=null;return;}
     // Appending towards a later seek target can legitimately take time. Only
@@ -102,8 +114,8 @@ class EncodedMedia {
     }
   }
   diagnostics(){return {recoveries:this.recoveries,repairing:this.repairing,failed:this.failed,rawReadyState:this.video.raw.readyState,
-    pending:this.video.pendingSourceTime,tracks:Array.from(this.buffers,([id,b])=>({id,updating:b.updating,queued:this.queues.get(id)?.length??0,
-      ranges:Array.from({length:b.buffered.length},(_,i)=>[b.buffered.start(i),b.buffered.end(i)])}))};}
+    pending:this.video.pendingSourceTime,tracks:Array.from(this.buffers,([id,b])=>{try{return {id,updating:b.updating,queued:this.queues.get(id)?.length??0,
+      ranges:Array.from({length:b.buffered.length},(_,i)=>[b.buffered.start(i),b.buffered.end(i)])};}catch{return {id,unavailable:true};}})};}
   close(){this.closed=true;this.generation++;if(this.url)URL.revokeObjectURL(this.url);}
 }
 globalThis.EncodedMedia=EncodedMedia;

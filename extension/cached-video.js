@@ -28,7 +28,7 @@ function createCachedVideo(element){
     }
     const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;
   },set(target,key,value){
-    if(key==='currentTime'){goal=sourceTime(value);synchronize();return true;}
+    if(key==='currentTime'){goal=Math.max(0,sourceTime(value));synchronize();return true;}
     return Reflect.set(target,key,value,target);
   }});
 }

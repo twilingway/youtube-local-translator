@@ -69,6 +69,7 @@ async function start(m){
       sourceCacheBytes=message.cacheBytes??sourceCacheBytes;
       if(message.type==='cache-header'){
         settings.sourceStart=message.time-(context.currentTime-origin);
+        settings.sourceMeta=message.sourceMeta;
         emit({type:'reset',epoch,settings:{...settings},tracks:message.tracks,encoded:true});
       }else if(message.type==='cache-data')emit({...message,type:'encoded',epoch});
     };

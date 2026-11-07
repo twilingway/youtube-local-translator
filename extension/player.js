@@ -431,7 +431,7 @@ document.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='c' && !$('subt
 document.addEventListener('keydown',e=>{if(e.code==='Space' && !['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target.tagName)){e.preventDefault();$('play').click();}});
 window.addEventListener('pagehide',()=>{if(!ramMode && !document.body.classList.contains('embedded'))worker('stop').catch(()=>{});});
 // Text-only diagnostics for tests and reproducible measurements; no original media.
-globalThis.translatorDiagnostics=()=>({build:'0.4.7',sessionId,epoch,head,position:video.currentTime,readyThrough,subtitles:showSubtitles,
+globalThis.translatorDiagnostics=()=>({build:'0.4.9',sessionId,epoch,head,position:video.currentTime,readyThrough,subtitles:showSubtitles,
   settings:{mode:settings.mode,voice:settings.voice,delay:Number($('delay').value)},metrics,
   source:{time:lastSource.time,paused:lastSource.paused,duration:lastSource.duration},unlocked,started,autoplayBlocked,playPending,
   paused:video.paused,videoReadyState:video.readyState,audioState:dubAudio.paused?'paused':'running',
@@ -440,7 +440,7 @@ globalThis.translatorDiagnostics=()=>({build:'0.4.7',sessionId,epoch,head,positi
   speechRate:dubAudio.playbackRate,speechQueue:cues.filter(c=>c.start<=video.currentTime && !spoken.has(c.id) && c.audioBytes).length,
   mediaClock,
   transport,processing,nativeState:nativeMode?video.nativeState():null,controlsHidden:document.body.classList.contains('controls-hidden'),
-  videoMode:ramMode?'ram':nativeMode?'native':'capture',encoded:ramMode?{bytes:encodedMedia?.bytes,chunks:encodedMedia?.records.length,tracks:encodedMedia?.tracks,rawPosition:video.raw.currentTime,target:video.targetSourceTime,decoder:encodedMedia?.diagnostics()}:null,
+  videoMode:ramMode?'ram':nativeMode?'native':'capture',encoded:ramMode?{bytes:encodedMedia?.bytes,chunks:encodedMedia?.records.length,tracks:encodedMedia?.tracks,rawPosition:video.raw.currentTime,target:video.targetSourceTime,decoder:encodedMedia?.diagnostics(),source:settings.sourceMeta}:null,
   trackInfo,frameStats,cacheStats,archiveChunks:captureArchive.chunks.length,archiveIntegrity:captureArchive.failure||'ordered',translatedRanges,
   speakers:speakerList,
   buffered:Array.from({length:video.buffered.length},(_,i)=>[video.buffered.start(i),video.buffered.end(i)]),

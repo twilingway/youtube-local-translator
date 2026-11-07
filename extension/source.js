@@ -21,7 +21,7 @@
     window.dispatchEvent(new Event('resize'));
   };
   const bind = () => {
-    const found=document.querySelector('video');
+    const found=document.querySelector('#movie_player video.html5-main-video')||document.querySelector('#movie_player video')||document.querySelector('video');
     if(found && found!==video) {
       video=found;
       for(const name of ['seeking','seeked','ended','ratechange']) video.addEventListener(name,()=>send(name));
